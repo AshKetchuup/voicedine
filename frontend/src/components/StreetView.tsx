@@ -6,7 +6,7 @@ import L from 'leaflet';
 import { CHAMPS_ELYSEES_COORDS, LOCATIONS, WALKING_ROUTE } from '@/lib/constants';
 import { RestaurantResult } from '@/lib/types';
 import { apiClient } from '@/lib/api';
-import { MapPin } from 'lucide-react';
+import { MapPin, Loader2, Store } from 'lucide-react';
 import SearchBar from './SearchBar';
 import 'leaflet/dist/leaflet.css';
 
@@ -102,10 +102,10 @@ const StarRating = ({ rating }: { rating: number }) => {
         <span
           key={i}
           className={`text-sm ${i < fullStars
-              ? 'text-yellow-400'
-              : i === fullStars && hasHalfStar
-                ? 'text-yellow-400/50'
-                : 'text-gray-400'
+            ? 'text-yellow-400'
+            : i === fullStars && hasHalfStar
+              ? 'text-yellow-400/50'
+              : 'text-gray-400'
             }`}
         >
           ★
@@ -162,6 +162,41 @@ const StreetView: React.FC = () => {
   const handleClearError = useCallback(() => {
     setError(null);
   }, []);
+
+  // Call state
+  const [calling, setCalling] = useState<string | null>(null);
+
+  const handleCall = async (restaurantName: string, phoneNumber?: string) => {
+    const targetPhone = phoneNumber || "+15550000000"; // Dummy or real number
+
+    console.log(`Making call to ${restaurantName}...`);
+    setCalling(restaurantName);
+
+    try {
+      const res = await fetch('/api/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone_number: targetPhone,
+          restaurant_name: restaurantName
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Call failed');
+      }
+
+      const data = await res.json();
+      console.log('Call started:', data);
+      alert(`Call dispatched to ${restaurantName}! ID: ${data.call_id}`);
+    } catch (error: any) {
+      console.error('Call failed:', error);
+      alert(`Failed to call ${restaurantName}: ${error.message}`);
+    } finally {
+      setCalling(null);
+    }
+  };
 
   return (
     <div className="relative w-full h-full opacity-0 animate-fadeIn">
@@ -257,6 +292,27 @@ const StreetView: React.FC = () => {
                       View Details →
                     </a>
                   )}
+
+                  <button
+                    onClick={() => handleCall(restaurant.name, "+15551234567")}
+                    disabled={calling === restaurant.name}
+                    className={`flex items-center justify-center gap-2 w-full text-white text-xs font-bold py-1.5 rounded-md mt-2 transition-colors ${calling === restaurant.name
+                        ? 'bg-gray-600 cursor-not-allowed'
+                        : 'bg-green-600 hover:bg-green-700'
+                      }`}
+                  >
+                    {calling === restaurant.name ? (
+                      <>
+                        <Loader2 size={12} className="animate-spin" />
+                        Calling...
+                      </>
+                    ) : (
+                      <>
+                        <Store size={12} />
+                        Book Table
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </Popup>
