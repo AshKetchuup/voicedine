@@ -9,7 +9,7 @@ import { CHAMPS_ELYSEES_COORDS, LOCATIONS, WALKING_ROUTE } from '@/lib/constants
 const USER_POSITION = { lat: 48.8738, lng: 2.2950 };
 import { RestaurantResult } from '@/lib/types';
 import { apiClient } from '@/lib/api';
-import { MapPin } from 'lucide-react';
+import { MapPin, Phone, Loader2, Check } from 'lucide-react';
 import SearchBar from './SearchBar';
 import 'leaflet/dist/leaflet.css';
 
@@ -161,6 +161,10 @@ const StreetView: React.FC = () => {
   const [routeCoordinates, setRouteCoordinates] = useState<[number, number][]>([]);
   const [routeDistance, setRouteDistance] = useState<number | null>(null);
 
+  // Booking state
+  const [bookingPlace, setBookingPlace] = useState<string | null>(null);
+  const [bookedPlaces, setBookedPlaces] = useState<Set<string>>(new Set());
+
   // Fetch route from OSRM when a restaurant is selected
   useEffect(() => {
     if (!selectedRestaurant) {
@@ -252,6 +256,41 @@ const StreetView: React.FC = () => {
   const handleClearError = useCallback(() => {
     setError(null);
   }, []);
+
+  // Handler for booking a table
+  const handleBookTable = async (restaurant: RestaurantResult) => {
+    if (!confirm(`Call ${restaurant.name} to book a table?`)) return;
+
+    setBookingPlace(restaurant.name);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/booking/book`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurant_name: restaurant.name,
+          phone_number: restaurant.phone || "DEMO_MODE",
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || 'Booking failed');
+      }
+
+      const data = await response.json();
+      console.log('Booking initiated:', data);
+      // Mark as booked after successful call initiation
+      setBookedPlaces(prev => new Set(prev).add(restaurant.name));
+      alert(`Calling ${restaurant.name}... Your table is being booked!`);
+    } catch (err) {
+      console.error('Booking error:', err);
+      alert(`Failed to book: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setBookingPlace(null);
+    }
+  };
 
   return (
     <div className="relative w-full h-full opacity-0 animate-fadeIn">
@@ -375,16 +414,33 @@ const StreetView: React.FC = () => {
                       </div>
                     )}
 
-                    {restaurant.url && (
-                      <a
-                        href={restaurant.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-center text-xs bg-indigo-600 hover:bg-indigo-500 text-white py-1.5 rounded-md mt-2 transition-colors"
-                      >
-                        View Details →
-                      </a>
-                    )}
+                    {/* Book Table Button - Calls Booking Service */}
+                    <button
+                      onClick={() => handleBookTable(restaurant)}
+                      disabled={bookingPlace === restaurant.name || bookedPlaces.has(restaurant.name)}
+                      className={`flex items-center justify-center gap-2 w-full text-xs font-bold py-2 rounded-md mt-2 transition-colors disabled:cursor-not-allowed ${
+                        bookedPlaces.has(restaurant.name)
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-green-600 hover:bg-green-700 text-white disabled:opacity-50'
+                      }`}
+                    >
+                      {bookedPlaces.has(restaurant.name) ? (
+                        <>
+                          <Check size={12} />
+                          Booked ✓
+                        </>
+                      ) : bookingPlace === restaurant.name ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          Calling...
+                        </>
+                      ) : (
+                        <>
+                          <Phone size={12} />
+                          Book Table
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </Popup>

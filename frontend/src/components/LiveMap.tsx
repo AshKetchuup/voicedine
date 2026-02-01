@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Navigation, MapPin, Loader2, Store, ExternalLink, Star, Phone } from 'lucide-react';
+import { Navigation, MapPin, Loader2, Store, ExternalLink, Star, Phone, Check } from 'lucide-react';
 import { RestaurantResult } from '@/lib/types';
 import 'leaflet/dist/leaflet.css';
 
@@ -67,6 +67,7 @@ const LiveMap: React.FC<LiveMapProps> = ({ onBack, transcript }) => {
 
     // Booking state
     const [bookingPlace, setBookingPlace] = useState<string | null>(null);
+    const [bookedPlaces, setBookedPlaces] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (!navigator.geolocation) {
@@ -177,7 +178,9 @@ const LiveMap: React.FC<LiveMapProps> = ({ onBack, transcript }) => {
 
             const data = await response.json();
             console.log('Booking initiated:', data);
-            alert(`Calling ${restaurant.name}...`);
+            // Mark as booked after successful call initiation
+            setBookedPlaces(prev => new Set(prev).add(restaurant.name));
+            alert(`Calling ${restaurant.name}... Your table is being booked!`);
         } catch (err) {
             console.error('Booking error:', err);
             alert(`Failed to book: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -270,10 +273,18 @@ const LiveMap: React.FC<LiveMapProps> = ({ onBack, transcript }) => {
                                 {/* DEMO MODE: Button always enabled, calls MY_NUMBER */}
                                 <button
                                     onClick={() => handleBookTable(place)}
-                                    disabled={bookingPlace === place.name}
-                                    className="mt-2 flex items-center justify-center gap-2 w-full text-xs font-bold py-2 rounded transition-colors bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={bookingPlace === place.name || bookedPlaces.has(place.name)}
+                                    className={`mt-2 flex items-center justify-center gap-2 w-full text-xs font-bold py-2 rounded transition-colors disabled:cursor-not-allowed ${bookedPlaces.has(place.name)
+                                            ? 'bg-emerald-500 text-white'
+                                            : 'bg-green-600 hover:bg-green-700 text-white disabled:opacity-50'
+                                        }`}
                                 >
-                                    {bookingPlace === place.name ? (
+                                    {bookedPlaces.has(place.name) ? (
+                                        <>
+                                            <Check size={12} />
+                                            Booked ✓
+                                        </>
+                                    ) : bookingPlace === place.name ? (
                                         <>
                                             <Loader2 size={12} className="animate-spin" />
                                             Calling...
